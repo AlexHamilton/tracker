@@ -98,15 +98,17 @@ Now you have a native-like app on your iPhone!
 ### Daily Workflow
 
 1. **Morning**: Open the app and check the Report tab to see your status
-2. **Throughout the day**: Check off habits as you complete them in the Daily tab
+2. **Throughout the day**: Check off habits as you complete them in the Daily tab (auto-syncs to Google Sheets)
 3. **Evening**: Review the Exercises tab for tomorrow's workout
-4. **Anytime**: Tap "Save to Google Sheets" to sync your data to the cloud
+4. **Data is automatically synced** with Google Sheets when you check habits
 
 ## Data Storage
 
 - **Local Storage**: All data is automatically saved to your browser's local storage
-- **Google Sheets**: Manually sync by tapping the "Save to Google Sheets" button
-- **Note**: The Google Sheets updates/creates a single row per day, so you can save multiple times per day without creating duplicates
+- **Google Sheets**: Automatically syncs when you check habits (updates on load, every 5 minutes, and on habit changes)
+- **Smart Merging**: If you update data in Google Sheets or on another device, the app merges them intelligently (if either source shows a habit completed, it's marked as completed)
+- **Note**: The Google Sheets updates/creates a single row per day, so multiple syncs won't create duplicates
+- **Date Filter**: Only shows data from October 19, 2025 onwards
 
 ## Privacy
 

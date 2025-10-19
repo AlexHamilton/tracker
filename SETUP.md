@@ -75,8 +75,9 @@ This is your main tracking interface:
 
 1. Check off habits as you complete them throughout the day
 2. Changes are automatically saved locally (no internet required)
-3. Tap **Save to Google Sheets** to sync with Google Sheets
+3. Data automatically syncs with Google Sheets when you check habits
 4. Data persists even if you close the browser
+5. The app syncs on load, every 5 minutes, and whenever you change a habit
 
 **The 5 Habits:**
 - 🥖 **Carbs** - Track your carb intake
@@ -188,6 +189,15 @@ After syncing, your Google Sheet will have:
 
 The script automatically updates existing rows (by date), so saving multiple times per day won't create duplicates.
 
+### Smart Data Merging
+
+The app intelligently merges data from Google Sheets and local storage:
+
+- When syncing, it compares both sources for each day
+- If **either** source shows a habit was completed, it marks it as completed
+- This means you can update directly in Google Sheets if you forget to track a day
+- The next time you open the app, it will merge the Sheets data with your local data
+
 ### Using Apps Script Functions
 
 The `google-apps-script.js` file includes helper functions you can run:
@@ -202,6 +212,14 @@ Replace the files in the `exercises/` folder:
 - Keep the names: `exercise_1.png`, `exercise_2.png`, etc.
 - Use PNG or JPG format
 - Recommended size: 400-800px width for best display
+
+## Date Filtering
+
+The app only tracks and displays data from **October 19, 2025 onwards**. This means:
+
+- The report will only show dates from this date forward
+- Any data before this date is automatically filtered out
+- This keeps your tracking focused on the current tracking period
 
 ## Data Export
 

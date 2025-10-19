@@ -2,6 +2,7 @@
  * Google Apps Script for Habit Tracker
  *
  * This script receives data from your habit tracking app and logs it to a Google Sheet.
+ * It also serves data back to the app for syncing.
  *
  * SETUP INSTRUCTIONS:
  * 1. Open your Google Sheet
@@ -25,8 +26,9 @@ function doPost(e) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
     // Prepare row data
+    const dateFormatted = data.dateFormatted || new Date().toLocaleDateString("en-US");
     const row = [
-      data.dateFormatted || new Date().toLocaleDateString(),
+      dateFormatted,
       data.habits[0]?.completed ? "✓" : "✗", // Carbs
       data.habits[1]?.completed ? "✓" : "✗", // Water
       data.habits[2]?.completed ? "✓" : "✗", // Walk
@@ -54,12 +56,14 @@ function doPost(e) {
       headerRange.setFontColor("#FFFFFF");
     }
 
-    // Check if today's date already exists
-    const dateColumn = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    // Check if this date already exists
+    const dateColumn = sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 1).getValues();
     let rowIndex = -1;
     
     for (let i = 0; i < dateColumn.length; i++) {
-      if (dateColumn[i][0] === row[0]) {
+      const cellDate = dateColumn[i][0];
+      const cellDateStr = typeof cellDate === 'string' ? cellDate : cellDate.toLocaleDateString("en-US");
+      if (cellDateStr === dateFormatted) {
         rowIndex = i + 2; // +2 because arrays are 0-indexed and we skip header
         break;
       }
@@ -95,15 +99,64 @@ function doPost(e) {
   }
 }
 
-// Optional: Function to handle GET requests (for testing)
+// Function to handle GET requests - returns all data for syncing
 function doGet(e) {
-  return ContentService.createTextOutput(
-    JSON.stringify({
-      status: "success",
-      message: "Habit Tracker API is running",
-      instructions: "Use POST request to submit habit data",
-    })
-  ).setMimeType(ContentService.MimeType.JSON);
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      // No data yet
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "success",
+          data: {}
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Get all data (skip header row)
+    const range = sheet.getRange(2, 1, lastRow - 1, 7);
+    const values = range.getValues();
+    
+    // Convert to object keyed by date (YYYY-MM-DD format)
+    const data = {};
+    
+    values.forEach(row => {
+      const dateValue = row[0];
+      const dateStr = typeof dateValue === 'string' ? dateValue : dateValue.toLocaleDateString("en-US");
+      
+      // Parse the date and convert to YYYY-MM-DD format
+      const parsedDate = new Date(dateStr);
+      if (!isNaN(parsedDate.getTime())) {
+        const isoDate = parsedDate.toISOString().split('T')[0];
+        
+        data[isoDate] = {
+          carbs: row[1] === "✓",
+          water: row[2] === "✓",
+          walk: row[3] === "✓",
+          exercise: row[4] === "✓",
+          noalcohol: row[5] === "✓"
+        };
+      }
+    });
+    
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "success",
+        data: data
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "error",
+        message: error.toString(),
+        data: {}
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // Optional: Helper function to get data from the sheet

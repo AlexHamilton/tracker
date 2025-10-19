@@ -19,6 +19,9 @@ const STATE = {
     exercise: "Exercise",
     noalcohol: "No Alcohol",
   },
+  minDate: "2025-10-19", // Don't show dates before this
+  lastSyncTime: null,
+  syncInProgress: false,
 };
 
 // ============================================
@@ -27,12 +30,16 @@ const STATE = {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
-  loadTodayData();
+  syncWithGoogleSheets(); // Sync on load
   updateDate();
   initializeTabs();
   initializeExercises();
   attachEventListeners();
-  generateReport();
+  
+  // Auto-sync every 5 minutes
+  setInterval(() => {
+    syncWithGoogleSheets();
+  }, 5 * 60 * 1000);
 });
 
 // ============================================
@@ -57,6 +64,10 @@ function getDateString(date) {
 
 function getTodayString() {
   return getDateString(new Date());
+}
+
+function isDateAfterMin(dateStr) {
+  return dateStr >= STATE.minDate;
 }
 
 // ============================================
@@ -164,9 +175,13 @@ function loadSettings() {
     const settings = JSON.parse(savedSettings);
     STATE.sheetsUrl = settings.sheetsUrl || "";
     STATE.currentExercise = settings.currentExercise || 0;
+    STATE.lastSyncTime = settings.lastSyncTime || null;
 
     // Update settings panel
-    document.getElementById("sheetsUrl").value = STATE.sheetsUrl;
+    const sheetsUrlInput = document.getElementById("sheetsUrl");
+    if (sheetsUrlInput) {
+      sheetsUrlInput.value = STATE.sheetsUrl;
+    }
   }
 }
 
@@ -174,6 +189,7 @@ function saveSettings() {
   const settings = {
     sheetsUrl: STATE.sheetsUrl,
     currentExercise: STATE.currentExercise,
+    lastSyncTime: STATE.lastSyncTime,
   };
   localStorage.setItem("trackerSettings", JSON.stringify(settings));
 }
@@ -205,11 +221,141 @@ function saveTodayData() {
 
   allData[today] = todayData;
   localStorage.setItem("habitData", JSON.stringify(allData));
+  
+  // Auto-sync to Google Sheets
+  saveToGoogleSheets();
 }
 
 function getAllHabitData() {
   const saved = localStorage.getItem("habitData");
-  return saved ? JSON.parse(saved) : {};
+  const data = saved ? JSON.parse(saved) : {};
+  
+  // Filter out dates before minDate
+  const filtered = {};
+  Object.keys(data).forEach(dateStr => {
+    if (isDateAfterMin(dateStr)) {
+      filtered[dateStr] = data[dateStr];
+    }
+  });
+  
+  return filtered;
+}
+
+function setAllHabitData(data) {
+  // Filter out dates before minDate
+  const filtered = {};
+  Object.keys(data).forEach(dateStr => {
+    if (isDateAfterMin(dateStr)) {
+      filtered[dateStr] = data[dateStr];
+    }
+  });
+  
+  localStorage.setItem("habitData", JSON.stringify(filtered));
+}
+
+// ============================================
+// DATA MERGING
+// ============================================
+
+function mergeHabitData(localData, sheetsData) {
+  // Merge two data objects, taking the OR of values
+  // If either source says a habit was completed, mark it as completed
+  const merged = { ...localData };
+  
+  Object.keys(sheetsData).forEach(dateStr => {
+    if (!isDateAfterMin(dateStr)) {
+      return; // Skip dates before minDate
+    }
+    
+    if (!merged[dateStr]) {
+      merged[dateStr] = sheetsData[dateStr];
+    } else {
+      // Merge habit by habit
+      STATE.habits.forEach(habit => {
+        merged[dateStr][habit] = merged[dateStr][habit] || sheetsData[dateStr][habit] || false;
+      });
+    }
+  });
+  
+  return merged;
+}
+
+// ============================================
+// GOOGLE SHEETS SYNC
+// ============================================
+
+async function syncWithGoogleSheets() {
+  if (!STATE.sheetsUrl || STATE.syncInProgress) {
+    return;
+  }
+  
+  try {
+    STATE.syncInProgress = true;
+    
+    // Fetch data from Google Sheets
+    const response = await fetch(STATE.sheetsUrl, {
+      method: "GET",
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === "success" && result.data) {
+      // Merge with local data
+      const localData = getAllHabitData();
+      const mergedData = mergeHabitData(localData, result.data);
+      
+      // Save merged data locally
+      setAllHabitData(mergedData);
+      
+      // Reload today's data into UI
+      loadTodayData();
+      
+      // Update last sync time
+      STATE.lastSyncTime = new Date().toISOString();
+      saveSettings();
+      
+      console.log("Synced with Google Sheets successfully");
+    }
+  } catch (error) {
+    console.error("Error syncing with Google Sheets:", error);
+  } finally {
+    STATE.syncInProgress = false;
+  }
+}
+
+async function saveToGoogleSheets() {
+  if (!STATE.sheetsUrl) {
+    return;
+  }
+
+  const today = getTodayString();
+  const allData = getAllHabitData();
+  const todayData = allData[today] || {};
+
+  const data = {
+    date: new Date().toISOString(),
+    dateFormatted: new Date().toLocaleDateString("en-US"),
+    habits: STATE.habits.map((habit) => ({
+      name: STATE.habitNames[habit],
+      completed: todayData[habit] || false,
+    })),
+  };
+
+  try {
+    await fetch(STATE.sheetsUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    
+    showStatusMessage("✓ Synced with Google Sheets", "success");
+  } catch (error) {
+    console.error("Error saving to Google Sheets:", error);
+    showStatusMessage("Sync error - data saved locally", "error");
+  }
 }
 
 // ============================================
@@ -226,12 +372,6 @@ function attachEventListeners() {
       });
     }
   });
-
-  // Save to Google Sheets button
-  const saveButton = document.getElementById("saveButton");
-  if (saveButton) {
-    saveButton.addEventListener("click", saveToGoogleSheets);
-  }
 
   // Settings toggle
   const settingsToggle = document.getElementById("settingsToggle");
@@ -269,7 +409,7 @@ function handleSaveSettings() {
   saveSettings();
 
   // Show success message
-  showStatusMessage("Settings saved successfully!", "success");
+  showStatusMessage("Settings saved! Syncing...", "success");
 
   // Hide settings panel
   const settingsPanel = document.getElementById("settingsPanel");
@@ -278,56 +418,9 @@ function handleSaveSettings() {
       settingsPanel.classList.add("hidden");
     }, 500);
   }
-}
-
-// ============================================
-// GOOGLE SHEETS INTEGRATION
-// ============================================
-
-async function saveToGoogleSheets() {
-  if (!STATE.sheetsUrl) {
-    showStatusMessage(
-      "Please configure Google Sheets URL in settings",
-      "error"
-    );
-    return;
-  }
-
-  const today = getTodayString();
-  const allData = getAllHabitData();
-  const todayData = allData[today] || {};
-
-  const data = {
-    date: new Date().toISOString(),
-    dateFormatted: new Date().toLocaleDateString("en-US"),
-    habits: STATE.habits.map((habit) => ({
-      name: STATE.habitNames[habit],
-      completed: todayData[habit] || false,
-    })),
-  };
-
-  try {
-    showStatusMessage("Saving to Google Sheets...", "success");
-
-    const response = await fetch(STATE.sheetsUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    // Note: With no-cors mode, we can't read the response
-    // Assume success if no error was thrown
-    showStatusMessage("✓ Saved to Google Sheets!", "success");
-  } catch (error) {
-    console.error("Error saving to Google Sheets:", error);
-    showStatusMessage(
-      "Error saving to Google Sheets. Check console for details.",
-      "error"
-    );
-  }
+  
+  // Trigger sync
+  syncWithGoogleSheets();
 }
 
 // ============================================
@@ -339,11 +432,17 @@ function generateReport() {
   const today = new Date();
   const reportData = [];
 
-  // Generate data for the last 30 days
+  // Generate data for the last 30 days (but not before minDate)
   for (let i = 0; i < 30; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     const dateStr = getDateString(date);
+    
+    // Skip dates before minDate
+    if (!isDateAfterMin(dateStr)) {
+      continue;
+    }
+    
     const dayData = allData[dateStr] || {};
 
     reportData.push({
@@ -428,6 +527,12 @@ function renderTrendsChart() {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     const dateStr = getDateString(date);
+    
+    // Skip if before minDate
+    if (!isDateAfterMin(dateStr)) {
+      continue;
+    }
+    
     labels.push(
       date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     );
@@ -500,11 +605,17 @@ function renderStats() {
     let totalDays = 0;
     let completedDays = 0;
 
-    // Last 30 days
+    // Last 30 days (only after minDate)
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = getDateString(date);
+      
+      // Skip if before minDate
+      if (!isDateAfterMin(dateStr)) {
+        continue;
+      }
+      
       const dayData = allData[dateStr];
 
       if (dayData) {
@@ -532,6 +643,12 @@ function renderStats() {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     const dateStr = getDateString(date);
+    
+    // Stop if before minDate
+    if (!isDateAfterMin(dateStr)) {
+      break;
+    }
+    
     const dayData = allData[dateStr];
 
     if (!dayData) break;

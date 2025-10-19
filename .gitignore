@@ -1,0 +1,17 @@
+# Excel files (may contain personal data)
+*.xlsx
+*.xls
+
+# macOS
+.DS_Store
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+

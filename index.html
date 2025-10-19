@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Habit Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Habit Tracker</h1>
+            <p class="date" id="currentDate"></p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-button active" data-tab="daily">Daily</button>
+            <button class="tab-button" data-tab="exercises">Exercises</button>
+            <button class="tab-button" data-tab="report">Report</button>
+        </nav>
+
+        <!-- Daily Tab -->
+        <div class="tab-content active" id="daily-tab">
+            <section class="habits-section">
+                <h2>Today's Habits</h2>
+                <div class="habits-list">
+                    <div class="habit-item">
+                        <input type="checkbox" id="habit-carbs" class="habit-checkbox" data-habit="carbs">
+                        <label for="habit-carbs">
+                            <span class="habit-name">🥖 Carbs</span>
+                        </label>
+                    </div>
+                    <div class="habit-item">
+                        <input type="checkbox" id="habit-water" class="habit-checkbox" data-habit="water">
+                        <label for="habit-water">
+                            <span class="habit-name">💧 Water</span>
+                        </label>
+                    </div>
+                    <div class="habit-item">
+                        <input type="checkbox" id="habit-walk" class="habit-checkbox" data-habit="walk">
+                        <label for="habit-walk">
+                            <span class="habit-name">🚶 Walk</span>
+                        </label>
+                    </div>
+                    <div class="habit-item">
+                        <input type="checkbox" id="habit-exercise" class="habit-checkbox" data-habit="exercise">
+                        <label for="habit-exercise">
+                            <span class="habit-name">🏋️ Exercise</span>
+                        </label>
+                    </div>
+                    <div class="habit-item">
+                        <input type="checkbox" id="habit-noalcohol" class="habit-checkbox" data-habit="noalcohol">
+                        <label for="habit-noalcohol">
+                            <span class="habit-name">🚫🍺 No Alcohol</span>
+                        </label>
+                    </div>
+                </div>
+                <button id="saveButton" class="save-button">Save to Google Sheets</button>
+                <div id="statusMessage" class="status-message"></div>
+            </section>
+
+            <section class="settings-section">
+                <button id="settingsToggle" class="settings-toggle">⚙️ Settings</button>
+                <div id="settingsPanel" class="settings-panel hidden">
+                    <h3>Google Sheets URL</h3>
+                    <input type="text" id="sheetsUrl" placeholder="Your Apps Script URL" class="sheets-url-input">
+                    <button id="saveSettings" class="save-settings-button">Save Settings</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Exercises Tab -->
+        <div class="tab-content" id="exercises-tab">
+            <section class="exercises-section">
+                <h2>Today's Exercise</h2>
+                <div class="exercise-display">
+                    <img id="exerciseImage" src="" alt="Exercise" class="exercise-image">
+                    <div class="exercise-controls">
+                        <button id="prevExercise" class="exercise-nav-btn">← Previous</button>
+                        <span id="exerciseCounter" class="exercise-counter">1 / 4</span>
+                        <button id="nextExercise" class="exercise-nav-btn">Next →</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Report Tab -->
+        <div class="tab-content" id="report-tab">
+            <section class="report-section">
+                <nav class="subtab-nav">
+                    <button class="subtab-button active" data-subtab="overview">Overview</button>
+                    <button class="subtab-button" data-subtab="trends">Trends</button>
+                    <button class="subtab-button" data-subtab="stats">Stats</button>
+                </nav>
+
+                <!-- Overview Subtab -->
+                <div class="subtab-content active" id="overview-subtab">
+                    <h2>Habit Overview</h2>
+                    <div id="reportTable" class="report-table"></div>
+                </div>
+
+                <!-- Trends Subtab -->
+                <div class="subtab-content" id="trends-subtab">
+                    <h2>7-Day Trends</h2>
+                    <canvas id="trendsChart"></canvas>
+                </div>
+
+                <!-- Stats Subtab -->
+                <div class="subtab-content" id="stats-subtab">
+                    <h2>Statistics</h2>
+                    <div id="statsContent" class="stats-content"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
